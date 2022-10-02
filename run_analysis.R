@@ -1,10 +1,10 @@
+# install and load needed package 
 
-# define some vairiable
+if(!require("data.table")) { install.packages("data.table") }; require("data.table")
+if(!require("reshape2")) { install.packages("reshape2") }; require("reshape2")
+if(!require("dplyr")) { install.packages("dplyr") }; require("dplyr")
 
-library(dplyr)
-
-setwd("/Users/cuongpham/Dropbox/Data work/Data Science/Course 3 - Getting and cleaning data/")
-
+setwd("/Users/cuongpham/Dropbox/Data work/Data Science/Course 3 - Getting and cleaning data")
 fpath <- "UCI HAR Dataset"
 fname <- 'getdata_dataset.zip'
 
@@ -25,60 +25,57 @@ if(!file.exists(fpath)) {
   unzip(fname)
 }
 
-# Q1. Merges the training and the test sets to create one data set.
+# read data
+features <- read.table(paste(fpath, "/features.txt", sep =""))
+colnames(features) <- c("feature", "featureName")
+activity_labels <- read.table(paste(fpath, "/activity_labels.txt", sep =""))
+colnames(activity_labels) <- c("activity", "activityName")
 
-# Read in the data into the test and training sets
-features <- read.table(file.path(fpath, 'features.txt'),col.names = c("n","functions"))
-activities <- read.table(file.path(fpath,  'activity_labels.txt'), col.names = c("code", "activity"))
+# load test data
+test_subject <- read.table(paste(fpath, "/test/subject_test.txt", sep =""))
+test_x <- read.table(paste(fpath, "/test/X_test.txt", sep =""))
+test_y <- read.table(paste(fpath, "/test/Y_test.txt", sep =""))
 
-test.subjects <- read.table(file.path(fpath, 'test', 'subject_test.txt'),  col.names = "subject")
-xtest.data <- read.table(file.path(fpath, 'test', 'X_test.txt'), col.names = features$functions)
-ytest.data <- read.table(file.path(fpath, 'test', "y_test.txt"), col.names = "code")
+# load training data
+train_subject <- read.table(paste(fpath, "/train/subject_train.txt", sep =""))
+train_x <- read.table(paste(fpath, "/train/X_train.txt", sep =""))
+train_y <- read.table(paste(fpath, "/train/Y_train.txt", sep =""))
 
-train.subjects <- read.table(file.path(fpath, 'train', 'subject_train.txt'), col.names = "subject")
-xtrain.data <- read.table(file.path(fpath, 'train', 'X_train.txt'), col.names = features$functions)
-ytrain.data <- read.table(file.path(fpath, 'train', 'y_train.txt'), col.names = "code")
+# assign nice column names to all datasets
+colnames(test_subject) <- c("subject")
+colnames(test_x) <- features$featureName
+colnames(test_y) <- c("activity")
 
+colnames(train_subject) <- c("subject")
+colnames(train_x) <- features$featureName
+colnames(train_y) <- c("activity")
 
-# Bind the rows for each of the data sets together
-x.data <- rbind(xtrain.data, xtest.data)
-y.data <- rbind(ytrain.data, ytest.data)
-subject <- rbind(train.subjects, test.subjects)
+# 1. Merge training and test data
+test <- cbind(test_x, test_y, test_subject)
+train <- cbind(train_x, train_y, train_subject)
+data <- rbind(test, train)
 
-# Combine all data into one table. 
-full.data <- cbind(subject, y.data, x.data)
+# filtering the "mean" and "std" variables (plus subject and label) and exclude the others
+data <- data[grep("mean|std|activity|subject", colnames(data))]
 
+# do an outer-join(cleaned_data, activity_labels)
+data <- merge(data, activity_labels, by="activity", all.x = TRUE)
 
-# Q2. Extracts only the measurements on the mean and standard deviation for each measurement. 
+# formatting columns with descriptive names
+colnames(data) <- gsub('BodyBody', 'Body', 
+                  gsub('[()-]', '', 
+                  gsub('-std', 'StdDev', 
+                  gsub('-mean', 'Mean', 
+                  colnames(data)))))
 
-tidy.data <- full.data %>% select(subject, code, contains("mean"), contains("std"))
+# remove "activity" column since we do not 
+fullData <- data[, colnames(data) != "activity"]
 
+# generate the tidy data set
+ids = c("subject", "activityName")
+measures = setdiff(colnames(fullData),ids)
+melt_data <- melt(data, id = ids, measure.vars = measures)
+tidy_data <- dcast(melt_data, subject + activityName ~ variable, mean)
 
-# Q3. Uses descriptive activity names to name the activities in the data set
-
-tidy.data$code <- activities[tidy.data$code, 2]
-
-
-# Q4. Appropriately labels the data set with descriptive variable names. 
-
-names(tidy.data)[2] = "activity"
-names(tidy.data)<-gsub("Acc", "Accelerometer", names(tidy.data))
-names(tidy.data)<-gsub("Gyro", "Gyroscope", names(tidy.data))
-names(tidy.data)<-gsub("BodyBody", "Body", names(tidy.data))
-names(tidy.data)<-gsub("Mag", "Magnitude", names(tidy.data))
-names(tidy.data)<-gsub("^t", "Time", names(tidy.data))
-names(tidy.data)<-gsub("^f", "Frequency", names(tidy.data))
-names(tidy.data)<-gsub("tBody", "TimeBody", names(tidy.data))
-names(tidy.data)<-gsub("-mean()", "Mean", names(tidy.data), ignore.case = TRUE)
-names(tidy.data)<-gsub("-std()", "STD", names(tidy.data), ignore.case = TRUE)
-names(tidy.data)<-gsub("-freq()", "Frequency", names(tidy.data), ignore.case = TRUE)
-names(tidy.data)<-gsub("angle", "Angle", names(tidy.data))
-names(tidy.data)<-gsub("gravity", "Gravity", names(tidy.data))
-
-# Q5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
-
-fdata<-aggregate(. ~subject + activity, tidy.data, mean)
-fdata<-fdata[order(fdata$subject,fdata$activity),]
-write.table(fdata, "tidy.txt", row.name=FALSE)
-
-
+# write data to file
+write.table(tidy_data, file = "./tidy_data.txt", row.name=FALSE)
