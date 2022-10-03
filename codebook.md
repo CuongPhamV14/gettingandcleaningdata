@@ -1,8 +1,7 @@
+The tidy data has 180 observation and following variables. 
 
-Tidy data set: data structure
-There are 180 observations of in the data set with following variables. 
 
-                   col_name col_index col_class
+#               col_name 	  col_index 	col_class
 1                   subject         1   integer
 2              activityName         2 character
 3             tBodyAccMeanX         3   numeric
