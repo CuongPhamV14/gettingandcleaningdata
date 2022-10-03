@@ -4,7 +4,6 @@ if(!require("data.table")) { install.packages("data.table") }; require("data.tab
 if(!require("reshape2")) { install.packages("reshape2") }; require("reshape2")
 if(!require("dplyr")) { install.packages("dplyr") }; require("dplyr")
 
-setwd("/Users/cuongpham/Dropbox/Data work/Data Science/Course 3 - Getting and cleaning data")
 fpath <- "UCI HAR Dataset"
 fname <- 'getdata_dataset.zip'
 
